@@ -9,11 +9,22 @@ import java.util.*;
  * Created by artem on 28.02.16.
  */
 public class Word implements Comparable<Word> {
+
+    public static final int ALL_PARTS_OF_SPEECH = 0;
+    public static final int NOUN = 1;
+    public static final int VERB = 2;
+    public static final int ADJECTIVE = 3;
+    public static final int ADVERB = 4;
+
+    private static final int meaningful_information_length = 3;
+
+
     private String word;
     private String pos;
 
     private Integer positiveFrequency;
     private Integer negativeFrequency;
+    private Integer totalFrequency;
 
     private HashMap<Integer, Integer> frequencyPerDoc;
 
@@ -22,17 +33,23 @@ public class Word implements Comparable<Word> {
 
     private Pair<Double, Double> rate_TF_IDF;
 
+    private Double mark;
+
 
     public Word() {
         word = null;
         pos = null;
+
         positiveFrequency = 0;
         negativeFrequency = 0;
+        totalFrequency = 0;
+
         frequencyPerDoc = new HashMap<>();
         positiveDocs = new HashSet<>();
         negativeDocs = new HashSet<>();
 
         rate_TF_IDF = new Pair<>(0.0, 0.0);
+        mark = 0.0;
     }
 
     public Word (CoreLabel token) {
@@ -41,11 +58,14 @@ public class Word implements Comparable<Word> {
 
         positiveFrequency = 0;
         negativeFrequency = 0;
+        totalFrequency = 0;
+
         frequencyPerDoc = new HashMap<>();
         positiveDocs = new HashSet<>();
         negativeDocs = new HashSet<>();
 
         rate_TF_IDF = new Pair<>(0.0, 0.0);
+        mark = 0.0;
     }
 
     @Override
@@ -86,26 +106,50 @@ public class Word implements Comparable<Word> {
         return this.pos;
     }
 
+    public Integer getFrequencyInDoc(Integer docIndex) {
+        return frequencyPerDoc.get(docIndex);
+    }
+
+    public Double getMark() { return mark; }
+
+    public void setMark(Double mark) { this.mark = mark; }
+
     public void setPOS(String pos) {
         this.pos = pos;
     }
 
-    public Integer getTotalFrequency() { return this.positiveFrequency + this.negativeFrequency; }
+    public Integer getTotalFrequency() { return this.totalFrequency; }
 
-    public Integer getPositiveFrequency() { return this.positiveFrequency; }
+    public Integer getPositiveFrequency() {
+        if (positiveFrequency == 0 && totalFrequency != 0)
+            return (int)Math.ceil(totalFrequency / 2);
 
-    public Integer getNegativeFrequency() { return this.negativeFrequency; }
+        return this.positiveFrequency;
+    }
+
+    public Integer getNegativeFrequency() {
+        if (negativeFrequency == 0 && totalFrequency != 0)
+            return totalFrequency / 2;
+
+        return this.negativeFrequency;
+    }
 
     public void addPositiveOccurrence(Integer docNumber) {
         addOccurrence(docNumber);
         positiveDocs.add(docNumber);
         ++positiveFrequency;
+        ++totalFrequency;
     }
 
     public void addNegativeOccurrence(Integer docNumber) {
         addOccurrence(docNumber);
         negativeDocs.add(docNumber);
         ++negativeFrequency;
+        ++totalFrequency;
+    }
+
+    public void addNeutralOccurrence() {
+        ++totalFrequency;
     }
 
     public void set_TF_IDF_Rate(Pair<Double, Double> rate) {
@@ -120,8 +164,7 @@ public class Word implements Comparable<Word> {
         StringBuilder text = new StringBuilder();
         Formatter format = new Formatter(text, Locale.US);
 
-        format.format("%1$-25s\t%2$4s\t%3$25s\t%4$25s", word, pos, rate_TF_IDF.getFirst(),
-                rate_TF_IDF.getSecond());
+        format.format("%1$-25s\t%2$4s\t%3$25s", word, pos, mark);
 
         return format.toString();
     }
@@ -129,22 +172,19 @@ public class Word implements Comparable<Word> {
     public static Word parseWord(String string) {
         String[] values = string.split("\t");
 
-        if (values.length < 4)
+        if (values.length < meaningful_information_length)
             return null;
 
         try {
             String _word = values[0].trim();
             String _pos = values[1].trim();
 
-            Double _positiveRate = Double.parseDouble(values[2].trim());
-            Double _negativeRate = Double.parseDouble(values[3].trim());
-
-            Pair<Double, Double> _rate = new Pair<>(_positiveRate, _negativeRate);
+            Double mark = Double.parseDouble(values[2].trim());
 
             Word word = new Word();
             word.setWord(_word);
             word.setPOS(_pos);
-            word.set_TF_IDF_Rate(_rate);
+            word.setMark(mark);
 
             return word;
         } catch (Exception e) {

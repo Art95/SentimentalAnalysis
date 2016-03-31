@@ -1,10 +1,4 @@
 gmo
 genetically
 modified
-organism
 food
-gene
-modify
-crop
-genetic
-modification
