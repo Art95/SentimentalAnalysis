@@ -23,6 +23,14 @@ public class Dictionary {
         dictionary = new HashMap<>();
     }
 
+    public Dictionary(List<Word> words) {
+        dictionary = new HashMap<>();
+
+        for (Word word : words) {
+            dictionary.putIfAbsent(word, word);
+        }
+    }
+
     public void loadDictionary(String dictionaryAddress) {
         Word word;
 
@@ -41,9 +49,15 @@ public class Dictionary {
 
         } catch(IOException e) {
             e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
         }
+    }
+
+    public Set<Word> getWords() {
+        return this.dictionary.keySet();
+    }
+
+    public boolean containsWord(Word word) {
+        return dictionary.containsKey(word);
     }
 
     public void saveDictionary(String fileAddress) {
