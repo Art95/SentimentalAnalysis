@@ -1,15 +1,12 @@
 package main;
 
 import analyzer.SentimentAnalyzer;
-import corpus.Corpus;;
-
-import corpus.Document;
-import dictionary.Dictionary;
-import analyzer.WordMarker;
+import corpus.Corpus;
+import util.POS;
 import util.Utils;
 import util.Word;
 
-import java.util.*;
+import java.util.List;
 
 /**
  * Created by artem on 28.02.16.
@@ -24,7 +21,7 @@ public class Main {
         corpus.loadCorpus(Utils.proCorpusAddress, Utils.antiCorpusAddress);
 
         SentimentAnalyzer analyzer = new SentimentAnalyzer();
-       /* analyzer.setPosTypes(Word.ADJECTIVE, Word.ADVERB);
+       /* analyzer.setPosTypes(POS.ADJECTIVE, POS.ADVERB);
 
         List<String> poss = corpus.getPositiveDocs();
         List<String> negs = corpus.getNegativeDocs();
@@ -40,6 +37,6 @@ public class Main {
 
         corpus.removeSpecialWords();
         corpus.removeInsignificantWords();
-        analyzer.createNewClassifier(corpus, Word.ADJECTIVE);
+        analyzer.createNewClassifier(corpus, POS.ADJECTIVE);
     }
 }

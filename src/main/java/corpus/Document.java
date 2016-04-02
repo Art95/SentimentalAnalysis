@@ -5,7 +5,7 @@ import edu.stanford.nlp.ling.CoreLabel;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
 import edu.stanford.nlp.util.CoreMap;
-import util.Pair;
+import util.POS;
 import util.Utils;
 import util.Word;
 
@@ -57,33 +57,25 @@ public class Document {
         words = extractWords();
     }
 
-    public List<Word> getWords(Integer... wordsPOS) {
+    public List<Word> getWords(POS... wordsPOS) {
         if (wordsPOS == null || wordsPOS.length == 0)
             return this.words;
 
-        HashSet<Integer> pos = new HashSet<>();
+        HashSet<POS> pos = new HashSet<>();
         Collections.addAll(pos, wordsPOS);
-
-        if (pos.contains(Word.ALL_PARTS_OF_SPEECH))
-            return this.words;
 
         List<Word> result = new ArrayList<>();
 
         for (Word word : words) {
-            if (pos.contains(Word.ADJECTIVE) && word.isAdjective())
+            if (pos.contains(word.getPOS())) {
                 result.add(word);
-            else if (pos.contains(Word.ADVERB) && word.isAdverb())
-                result.add(word);
-            else if (pos.contains(Word.NOUN) && word.isNoun())
-                result.add(word);
-            else if (pos.contains(Word.VERB) && word.isVerb())
-                result.add(word);
+            }
         }
 
         return result;
     }
 
-    public void removeSpecialWords(Integer... specialWordsType) {
+    public void removeSpecialWords(SpecialWordType... specialWordsType) {
         Set<String> removeWords = new HashSet<>();
 
         if (specialWordsType.length == 0) {
@@ -91,12 +83,12 @@ public class Document {
             removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
             removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
         } else {
-            for (Integer type : specialWordsType) {
-                if (type.equals(Texts.STOP_WORDS))
+            for (SpecialWordType type : specialWordsType) {
+                if (type.equals(SpecialWordType.STOP_WORD))
                     removeWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
-                else if (type.equals(Texts.KERNEL))
+                else if (type.equals(SpecialWordType.KERNEL_WORD))
                     removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
-                else if (type.equals(Texts.PERIPHERY))
+                else if (type.equals(SpecialWordType.PERIPHERY_WORD))
                     removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
             }
         }

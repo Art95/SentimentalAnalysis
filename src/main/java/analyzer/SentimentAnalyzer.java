@@ -2,11 +2,11 @@ package analyzer;
 
 import corpus.Corpus;
 import corpus.Document;
-
 import learning.TrainingExample;
 import perceptron.Perceptron;
 import perceptron.PerceptronTrainer;
 import perceptron.RPPerceptron;
+import util.POS;
 import util.Pair;
 import util.Utils;
 import util.Word;
@@ -32,7 +32,7 @@ public class SentimentAnalyzer {
 
     private int inputSize;
 
-    private Integer[] posTypes;
+    private POS[] posTypes;
 
     public SentimentAnalyzer() {
         weights = loadWeights();
@@ -47,7 +47,7 @@ public class SentimentAnalyzer {
         }
     }
 
-    public void setPosTypes(Integer... posTypes) {
+    public void setPosTypes(POS... posTypes) {
         this.posTypes = posTypes.clone();
     }
 
@@ -59,7 +59,7 @@ public class SentimentAnalyzer {
         return perceptron.classify(input);
     }
 
-    public void createNewClassifier(Corpus corpus, Integer... wordsPOS) {
+    public void createNewClassifier(Corpus corpus, POS... wordsPOS) {
         indexes.clear();
         weights.clear();
         inputSize = 0;

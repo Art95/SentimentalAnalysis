@@ -2,12 +2,11 @@ package analyzer;
 
 import corpus.Corpus;
 import corpus.Document;
-
 import learning.TrainingExample;
 import perceptron.Perceptron;
 import perceptron.PerceptronTrainer;
 import perceptron.RPPerceptron;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import util.POS;
 import util.Utils;
 import util.Word;
 
@@ -24,14 +23,14 @@ public class WordMarker {
 
     private int inputSize;
 
-    private Integer[] posTypes;
+    private POS[] posTypes;
 
     public WordMarker() {
         indexes = new HashMap<>();
         trainer = new PerceptronTrainer();
     }
 
-    public List<Word> markWords(Corpus corpus, Integer... wordsPOS) {
+    public List<Word> markWords(Corpus corpus, POS... wordsPOS) {
         posTypes = wordsPOS.clone();
 
         List<Word> words = corpus.getWords(wordsPOS);
