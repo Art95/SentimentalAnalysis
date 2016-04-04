@@ -9,18 +9,10 @@ import java.util.*;
  * Created by artem on 28.02.16.
  */
 public class Word implements Comparable<Word> {
-
-    public static final int ALL_PARTS_OF_SPEECH = 0;
-    public static final int NOUN = 1;
-    public static final int VERB = 2;
-    public static final int ADJECTIVE = 3;
-    public static final int ADVERB = 4;
-
     private static final int meaningful_information_length = 3;
 
-
     private String word;
-    private String pos;
+    private POS pos;
 
     private Integer positiveFrequency;
     private Integer negativeFrequency;
@@ -54,7 +46,7 @@ public class Word implements Comparable<Word> {
 
     public Word (CoreLabel token) {
         word = token.get(CoreAnnotations.LemmaAnnotation.class).trim().toLowerCase();
-        pos = token.get(CoreAnnotations.PartOfSpeechAnnotation.class);
+        pos = POS.fromString(token.get(CoreAnnotations.PartOfSpeechAnnotation.class));
 
         positiveFrequency = 0;
         negativeFrequency = 0;
@@ -102,7 +94,7 @@ public class Word implements Comparable<Word> {
         this.word = word;
     }
 
-    public String getPOS() {
+    public POS getPOS() {
         return this.pos;
     }
 
@@ -114,7 +106,7 @@ public class Word implements Comparable<Word> {
 
     public void setMark(Double mark) { this.mark = mark; }
 
-    public void setPOS(String pos) {
+    public void setPOS(POS pos) {
         this.pos = pos;
     }
 
@@ -183,7 +175,7 @@ public class Word implements Comparable<Word> {
 
             Word word = new Word();
             word.setWord(_word);
-            word.setPOS(_pos);
+            word.setPOS(POS.fromString(_pos));
             word.setMark(mark);
 
             return word;
@@ -194,31 +186,27 @@ public class Word implements Comparable<Word> {
     }
 
     public boolean isAdjective() {
-        return pos.equals("JJ") || pos.equals("JJR") || pos.equals("JJS");
+        return pos == POS.ADJECTIVE;
     }
 
     public boolean isAdverb() {
-        return pos.equals("RB") || pos.equals("RBR") || pos.equals("RBS");
+        return pos == POS.ADVERB;
     }
 
     public boolean isVerb() {
-        return pos.equals("VB") || pos.equals("VBD") || pos.equals("VBG") ||
-                pos.equals("VBN") || pos.equals("VBP") || pos.equals("VBZ");
+        return pos == POS.VERB;
     }
 
     public boolean isNoun() {
-        return pos.equals("NN") || pos.equals("NNS") || pos.equals("NNP");
+        return pos == POS.NOUN;
     }
 
-    public boolean isDigit() { return word.matches("-?\\d+(\\.\\d+)?"); }
-
     public boolean isWord() {
-        return (!isDigit() && (isAdjective() || isNoun() || isAdverb() || isVerb()));
+        return pos != POS.UNKNOWN;
     }
 
     public boolean hasSamePOS(Word anotherWord) {
-        return (this.isAdjective() && anotherWord.isAdjective()) || (this.isNoun() && anotherWord.isNoun()) ||
-                (this.isAdverb() && anotherWord.isAdverb()) || (this.isVerb() && anotherWord.isVerb());
+        return this.getPOS() == anotherWord.getPOS();
     }
 
     public boolean canMerge(Word anotherWord) {
