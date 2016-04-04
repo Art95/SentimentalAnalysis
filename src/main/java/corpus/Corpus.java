@@ -21,17 +21,17 @@ import java.util.*;
  */
 public class Corpus {
 
-    protected StanfordCoreNLP pipeline;
+    private StanfordCoreNLP pipeline;
 
     private List<Word> words;
     private Map<Word, Word> uniqueWords;
 
-    private List<String> positiveDocs;
-    private List<String> negativeDocs;
+    private List<Document> documents;
 
     private int positiveDocsNumber;
     private  int negativeDocsNumber;
 
+    private Set<String> specialWords;
 
     public Corpus() {
         Properties props = new Properties();
@@ -74,11 +74,15 @@ public class Corpus {
         File posFile = new File(positiveFileAddress);
         File negFile = new File(negativeFileAddress);
 
-        positiveDocs = loadDocuments(posFile);
-        negativeDocs = loadDocuments(negFile);
+        documents = new ArrayList<>();
 
-        positiveDocsNumber = positiveDocs.size();
-        negativeDocsNumber = negativeDocs.size();
+        documents.addAll(loadDocuments(posFile, DocumentOpinion.POSITIVE));
+
+        positiveDocsNumber = documents.size();
+
+        documents.addAll(loadDocuments(negFile, DocumentOpinion.NEGATIVE));
+
+        negativeDocsNumber = documents.size() - positiveDocsNumber;
 
         words = extractWords();
     }
@@ -101,21 +105,13 @@ public class Corpus {
         return result;
     }
 
-    public int getPositiveDocsNumber() { return positiveDocsNumber; }
-
-    public int getNegativeDocsNumber() { return negativeDocsNumber; }
-
-    public String getPositiveDoc(Integer index) { return this.positiveDocs.get(index); }
-
-    public String getNegativeDoc(Integer index) { return this.negativeDocs.get(index); }
-
-    public List<String> getPositiveDocs() {
-        return positiveDocs;
+    public List<Document> getDocuments() {
+        return documents;
     }
 
-    public List<String> getNegativeDocs() {
-        return negativeDocs;
-    }
+    public int getPositiveDocsNumber() { return this.positiveDocsNumber; }
+
+    public int getNegativeDocsNumber() { return this.negativeDocsNumber; }
 
     public void markWords_TF_IDF() {
         Double pRate, nRate, temp;
@@ -132,27 +128,35 @@ public class Corpus {
     }
 
     public void removeSpecialWords(SpecialWordType... specialWordsType) {
-        Set<String> removeWords = new HashSet<>();
+        specialWords = new HashSet<>();
 
         if (specialWordsType.length == 0) {
-            removeWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
-            removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
-            removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
+            specialWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
+            specialWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
+            specialWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
         } else {
             for (SpecialWordType type : specialWordsType) {
                 if (type.equals(SpecialWordType.STOP_WORD))
-                    removeWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
+                    specialWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
                 else if (type.equals(SpecialWordType.KERNEL_WORD))
-                    removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
+                    specialWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
                 else if (type.equals(SpecialWordType.PERIPHERY_WORD))
-                    removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
+                    specialWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
             }
         }
 
         List<Word> result = new ArrayList<>();
 
+        for (Document document : documents) {
+            document.setSpecialWords(specialWords);
+            document.removeSpecialWords(specialWordsType);
+        }
+
+        /* easier to remove special words here than recollecting all words from documents
+           after cleaning each of them
+         */
         for (Word word : words) {
-            if (!removeWords.contains(word.getWord())) {
+            if (!specialWords.contains(word.getWord())) {
                 result.add(word);
             }
         }
@@ -179,6 +183,8 @@ public class Corpus {
         words.clear();
         words = result;
     }
+
+    public Set<String> getSpecialWords() { return this.specialWords; }
 
     private boolean matchesPattern(CoreLabel token1, CoreLabel token2) {
         String pos1, pos2;
@@ -223,48 +229,14 @@ public class Corpus {
         List<Word> words;
         uniqueWords = new HashMap<>();
 
-        for (int i = 0; i < positiveDocs.size(); ++i) {
-            extractWordsFromDoc(positiveDocs.get(i), i, true);
-        }
-
-        for (int i = 0; i < negativeDocs.size(); ++i) {
-            extractWordsFromDoc(negativeDocs.get(i), i + positiveDocs.size(), false);
-        }
+        for (Document document : documents)
+            extractWordsFromDoc(document);
 
         words = new ArrayList<>(uniqueWords.values());
         Collections.sort(words);
         words = removeDuplicates(words);
 
         return words;
-    }
-
-    private void extractWordsFromDoc(String text, Integer docNumber, boolean positive) {
-        Annotation document = new Annotation(text);
-        Word word, temp;
-
-        this.pipeline.annotate(document);
-
-        List<CoreMap> sentences = document.get(CoreAnnotations.SentencesAnnotation.class);
-
-        for (CoreMap sentence : sentences) {
-            for (CoreLabel token: sentence.get(CoreAnnotations.TokensAnnotation.class)) {
-                word = new Word(token);
-
-                if (!word.isWord())
-                    continue;
-
-                uniqueWords.putIfAbsent(word, word);
-
-                temp = uniqueWords.get(word);
-
-                if (positive)
-                    temp.addPositiveOccurrence(docNumber);
-                else
-                    temp.addNegativeOccurrence(docNumber);
-
-                uniqueWords.put(word, temp);
-            }
-        }
     }
 
     private List<Word> removeDuplicates(List<Word> words) {
@@ -291,8 +263,25 @@ public class Corpus {
         return cleanedList;
     }
 
-    private ArrayList<String> loadDocuments(File file) {
+    private void extractWordsFromDoc(Document document) {
+        for (Word word : document.getWords()) {
+            if (uniqueWords.containsKey(word)) {
+                Word temp = uniqueWords.get(word);
+
+                if (temp.canMerge(word))
+                    temp.merge(word);
+
+                uniqueWords.put(word, temp);
+            } else {
+                uniqueWords.put(word, word);
+            }
+
+        }
+    }
+
+    private List<Document> loadDocuments(File file, DocumentOpinion opinion) {
         try {
+            List<Document> documents = new ArrayList<>();
             InputStream in = new FileInputStream(file);
             Scanner scan = new Scanner(in);
             StringBuilder text = new StringBuilder();
@@ -303,8 +292,19 @@ public class Corpus {
             }
 
             String sText = text.toString();
-            String[] docs = sText.split("Document Number: [0-9]+");
-            return new ArrayList<>(Arrays.asList(docs));
+            String[] docsTexts = sText.split("Document Number: [0-9]+");
+
+            for (String dText : docsTexts) {
+                if (dText.trim().isEmpty())
+                    continue;
+
+                Document document = new Document(pipeline, opinion);
+                document.setText(dText);
+
+                documents.add(document);
+            }
+
+            return documents;
         } catch (IOException e) {
             e.printStackTrace();
         }

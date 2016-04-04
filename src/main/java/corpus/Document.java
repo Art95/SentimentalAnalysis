@@ -19,28 +19,35 @@ import java.util.*;
  * Created by artem95 on 24.03.16.
  */
 public class Document {
-    protected StanfordCoreNLP pipeline;
+    private StanfordCoreNLP pipeline;
 
     private List<Word> words;
     private Map<Word, Word> uniqueWords;
 
+    private Set<String> removeWords;
+
     private String text;
+
+    private DocumentOpinion opinion;
 
     public Document() {
         Properties props = new Properties();
         props.setProperty("annotators", "tokenize, ssplit, pos, lemma");
         this.pipeline = new StanfordCoreNLP(props);
         words = new ArrayList<>();
+        opinion = DocumentOpinion.UNKNOWN;
     }
 
-    public Document(String text) {
-        Properties props = new Properties();
-        props.setProperty("annotators", "tokenize, ssplit, pos, lemma");
-        this.pipeline = new StanfordCoreNLP(props);
+    public Document(StanfordCoreNLP pipeline) {
+        this.pipeline = pipeline;
         words = new ArrayList<>();
+        opinion = DocumentOpinion.UNKNOWN;
+    }
 
-        this.text = text;
-        words = extractWords();
+    public Document(StanfordCoreNLP pipeline, DocumentOpinion opinion) {
+        this.pipeline = pipeline;
+        words = new ArrayList<>();
+        this.opinion = opinion;
     }
 
     public void setText(String text) {
@@ -49,6 +56,10 @@ public class Document {
         words.clear();
         words = extractWords();
     }
+
+    public void setOpinion(DocumentOpinion opinion) { this.opinion = opinion; }
+
+    public DocumentOpinion getOpinion() { return this.opinion; }
 
     public void loadDocument(String fileAddress) {
         File file = new File(fileAddress);
@@ -76,20 +87,23 @@ public class Document {
     }
 
     public void removeSpecialWords(SpecialWordType... specialWordsType) {
-        Set<String> removeWords = new HashSet<>();
+        if (removeWords == null || removeWords.size() == 0) {
 
-        if (specialWordsType.length == 0) {
-            removeWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
-            removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
-            removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
-        } else {
-            for (SpecialWordType type : specialWordsType) {
-                if (type.equals(SpecialWordType.STOP_WORD))
-                    removeWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
-                else if (type.equals(SpecialWordType.KERNEL_WORD))
-                    removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
-                else if (type.equals(SpecialWordType.PERIPHERY_WORD))
-                    removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
+            removeWords = new HashSet<>();
+
+            if (specialWordsType.length == 0) {
+                removeWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
+                removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
+                removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
+            } else {
+                for (SpecialWordType type : specialWordsType) {
+                    if (type.equals(SpecialWordType.STOP_WORD))
+                        removeWords.addAll(loadAdditionalFile(Utils.stopWordsFileAddress));
+                    else if (type.equals(SpecialWordType.KERNEL_WORD))
+                        removeWords.addAll(loadAdditionalFile(Utils.kernelFileAddress));
+                    else if (type.equals(SpecialWordType.PERIPHERY_WORD))
+                        removeWords.addAll(loadAdditionalFile(Utils.peripheryFileAddress));
+                }
             }
         }
 
@@ -104,6 +118,8 @@ public class Document {
         words.clear();
         words = result;
     }
+
+    public void setSpecialWords(Set<String> specialWords) { this.removeWords = specialWords; }
 
     private Set<String> loadAdditionalFile(String fileAddress) {
         Set<String> words = new HashSet<>();
@@ -121,6 +137,25 @@ public class Document {
         }
 
         return words;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Document)) return false;
+
+        Document document = (Document) o;
+
+        if (words != null ? !words.equals(document.words) : document.words != null) return false;
+        if (text != null ? !text.equals(document.text) : document.text != null) return false;
+        return opinion == document.opinion;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = text != null ? text.hashCode() : 0;
+        return result;
     }
 
     private List<Word> extractWords() {
@@ -154,7 +189,7 @@ public class Document {
                 uniqueWords.putIfAbsent(word, word);
 
                 temp = uniqueWords.get(word);
-                temp.addNeutralOccurrence();
+                temp.addOccurrence(this);
 
                 uniqueWords.put(word, temp);
             }
