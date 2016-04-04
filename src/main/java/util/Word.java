@@ -1,5 +1,7 @@
 package util;
 
+import corpus.Document;
+import corpus.DocumentOpinion;
 import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.ling.CoreLabel;
 
@@ -16,12 +18,13 @@ public class Word implements Comparable<Word> {
 
     private Integer positiveFrequency;
     private Integer negativeFrequency;
-    private Integer totalFrequency;
+    private Integer neutralFrequency;
 
-    private HashMap<Integer, Integer> frequencyPerDoc;
+    private Integer positiveDocsNumber;
+    private Integer negativeDocsNumber;
+    private Integer neutralDocsNumber;
 
-    private Set<Integer> positiveDocs;
-    private Set<Integer> negativeDocs;
+    private HashMap<Document, Integer> frequencyPerDoc;
 
     private Pair<Double, Double> rate_TF_IDF;
 
@@ -34,11 +37,13 @@ public class Word implements Comparable<Word> {
 
         positiveFrequency = 0;
         negativeFrequency = 0;
-        totalFrequency = 0;
+        neutralFrequency = 0;
 
         frequencyPerDoc = new HashMap<>();
-        positiveDocs = new HashSet<>();
-        negativeDocs = new HashSet<>();
+
+        positiveDocsNumber = 0;
+        negativeDocsNumber = 0;
+        neutralDocsNumber = 0;
 
         rate_TF_IDF = new Pair<>(0.0, 0.0);
         mark = 0.0;
@@ -50,11 +55,13 @@ public class Word implements Comparable<Word> {
 
         positiveFrequency = 0;
         negativeFrequency = 0;
-        totalFrequency = 0;
+        neutralFrequency = 0;
 
         frequencyPerDoc = new HashMap<>();
-        positiveDocs = new HashSet<>();
-        negativeDocs = new HashSet<>();
+
+        positiveDocsNumber = 0;
+        negativeDocsNumber = 0;
+        neutralDocsNumber = 0;
 
         rate_TF_IDF = new Pair<>(0.0, 0.0);
         mark = 0.0;
@@ -82,9 +89,11 @@ public class Word implements Comparable<Word> {
 
     }
 
-    public int getPositiveDocsNumber() { return this.positiveDocs.size(); }
+    public int getPositiveDocsNumber() { return this.positiveDocsNumber; }
 
-    public int getNegativeDocsNumber() { return this.negativeDocs.size(); }
+    public int getNegativeDocsNumber() { return this.negativeDocsNumber; }
+
+    public int getNeutralDocsNumber() { return this.neutralDocsNumber; }
 
     public String getWord() {
         return this.word;
@@ -98,8 +107,8 @@ public class Word implements Comparable<Word> {
         return this.pos;
     }
 
-    public Integer getFrequencyInDoc(Integer docIndex) {
-        return frequencyPerDoc.get(docIndex);
+    public Integer getFrequencyInDoc(Document document) {
+        return frequencyPerDoc.get(document);
     }
 
     public Double getMark() { return mark; }
@@ -110,38 +119,42 @@ public class Word implements Comparable<Word> {
         this.pos = pos;
     }
 
-    public Integer getTotalFrequency() { return this.totalFrequency; }
+    public Integer getTotalFrequency() { return positiveFrequency + negativeFrequency + neutralFrequency; }
 
     public Integer getPositiveFrequency() {
-        if (positiveFrequency == 0 && totalFrequency != 0)
-            return (int)Math.ceil(totalFrequency / 2);
-
         return this.positiveFrequency;
     }
 
     public Integer getNegativeFrequency() {
-        if (negativeFrequency == 0 && totalFrequency != 0)
-            return totalFrequency / 2;
-
         return this.negativeFrequency;
     }
 
-    public void addPositiveOccurrence(Integer docNumber) {
-        addOccurrence(docNumber);
-        positiveDocs.add(docNumber);
-        ++positiveFrequency;
-        ++totalFrequency;
-    }
+    public Integer getNeutralFrequency() { return this.neutralFrequency; }
 
-    public void addNegativeOccurrence(Integer docNumber) {
-        addOccurrence(docNumber);
-        negativeDocs.add(docNumber);
-        ++negativeFrequency;
-        ++totalFrequency;
-    }
+    public void addOccurrence(Document document) {
+        if (this.frequencyPerDoc.containsKey(document)) {
+            Integer freq = this.frequencyPerDoc.get(document);
+            this.frequencyPerDoc.put(document, ++freq);
+        } else {
+            this.frequencyPerDoc.put(document, 1);
 
-    public void addNeutralOccurrence() {
-        ++totalFrequency;
+            if (document.getOpinion().equals(DocumentOpinion.NEGATIVE)) {
+                ++negativeDocsNumber;
+            } else if (document.getOpinion().equals(DocumentOpinion.POSITIVE)) {
+                ++positiveDocsNumber;
+            } else {
+                ++neutralDocsNumber;
+            }
+        }
+
+
+        if (document.getOpinion().equals(DocumentOpinion.NEGATIVE)) {
+            ++negativeFrequency;
+        } else if (document.getOpinion().equals(DocumentOpinion.POSITIVE)) {
+            ++positiveFrequency;
+        } else {
+            ++neutralFrequency;
+        }
     }
 
     public void set_TF_IDF_Rate(Pair<Double, Double> rate) {
@@ -206,7 +219,7 @@ public class Word implements Comparable<Word> {
     }
 
     public boolean hasSamePOS(Word anotherWord) {
-        return this.getPOS() == anotherWord.getPOS();
+        return this.getPOS().equals(anotherWord.getPOS());
     }
 
     public boolean canMerge(Word anotherWord) {
@@ -216,22 +229,22 @@ public class Word implements Comparable<Word> {
     public void merge(Word anotherWord) {
         this.positiveFrequency += anotherWord.positiveFrequency;
         this.negativeFrequency += anotherWord.negativeFrequency;
+        this.neutralFrequency += anotherWord.neutralFrequency;
 
-        for (Integer key : anotherWord.frequencyPerDoc.keySet()) {
+        for (Document key : anotherWord.frequencyPerDoc.keySet()) {
             if (this.frequencyPerDoc.containsKey(key)) {
                 Integer freq = this.frequencyPerDoc.get(key);
-                this.frequencyPerDoc.put(key, freq + anotherWord.frequencyPerDoc.get(key));
-            } else
-                this.frequencyPerDoc.put(key, anotherWord.frequencyPerDoc.get(key));
+                this.frequencyPerDoc.put(key, freq + anotherWord.getFrequencyInDoc(key));
+            } else {
+                this.frequencyPerDoc.put(key, anotherWord.getFrequencyInDoc(key));
+
+                if (key.getOpinion().equals(DocumentOpinion.NEGATIVE))
+                    ++negativeDocsNumber;
+                else if (key.getOpinion().equals(DocumentOpinion.POSITIVE))
+                    ++positiveDocsNumber;
+                else
+                    ++neutralDocsNumber;
+            }
         }
-
-        this.positiveDocs.addAll(anotherWord.positiveDocs);
-        this.negativeDocs.addAll(anotherWord.negativeDocs);
-    }
-
-    private void addOccurrence(Integer docNumber) {
-        this.frequencyPerDoc.putIfAbsent(docNumber, 0);
-        Integer freq = this.frequencyPerDoc.get(docNumber);
-        this.frequencyPerDoc.put(docNumber, ++freq);
     }
 }

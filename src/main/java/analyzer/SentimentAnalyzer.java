@@ -2,10 +2,13 @@ package analyzer;
 
 import corpus.Corpus;
 import corpus.Document;
+
+import corpus.DocumentOpinion;
 import learning.TrainingExample;
 import perceptron.Perceptron;
 import perceptron.PerceptronTrainer;
 import perceptron.RPPerceptron;
+
 import util.POS;
 import util.Pair;
 import util.Utils;
@@ -34,6 +37,8 @@ public class SentimentAnalyzer {
 
     private POS[] posTypes;
 
+    private Corpus corpus;
+
     public SentimentAnalyzer() {
         weights = loadWeights();
         indexes = loadIndexes();
@@ -51,15 +56,22 @@ public class SentimentAnalyzer {
         this.posTypes = posTypes.clone();
     }
 
-    public boolean getOpinion(Document document) {
+    public DocumentOpinion recognizeOpinion(Document document) {
         if (perceptron == null || weights.size() == 0 || indexes.size() == 0)
             throw new NullPointerException("You should create classifier first");
 
         List<Double> input = getInputs(document);
-        return perceptron.classify(input);
+        boolean opinion = perceptron.classify(input);
+
+        if (opinion == false)
+            return DocumentOpinion.NEGATIVE;
+        else
+            return DocumentOpinion.POSITIVE;
     }
 
     public void createNewClassifier(Corpus corpus, POS... wordsPOS) {
+        this.corpus = corpus;
+
         indexes.clear();
         weights.clear();
         inputSize = 0;
@@ -72,10 +84,9 @@ public class SentimentAnalyzer {
 
         inputSize = indexes.size();
 
-        Pair<List<String>, List<String>> posDocs = splitData(corpus.getPositiveDocs());
-        Pair<List<String>, List<String>> negDocs = splitData(corpus.getNegativeDocs());
+        Pair<List<Document>, List<Document>> documents = splitData(corpus.getDocuments());
 
-        weights = trainClassifier(posDocs.getFirst(), negDocs.getFirst());
+        weights = trainClassifier(documents.getFirst());
         //weights = trainClassifier(corpus.getPositiveDocs(), corpus.getNegativeDocs());
 
         saveWeights();
@@ -83,15 +94,15 @@ public class SentimentAnalyzer {
 
         System.out.println("Data saved");
 
-        double accuracy = testClassifier(posDocs.getSecond(), negDocs.getSecond());
+        double accuracy = testClassifier(documents.getSecond());
 
         System.out.println("Classifier gives " + accuracy + " accuracy");
     }
 
-    private List<Double> trainClassifier(List<String> posDocs, List<String> negDocs) {
+    private List<Double> trainClassifier(List<Document> documents) {
 
         List<TrainingExample<List<Double>, Boolean>> trainingData =
-                createTrainingData(posDocs, negDocs);
+                createTrainingData(documents);
 
         inputSize = indexes.size();
 
@@ -114,25 +125,16 @@ public class SentimentAnalyzer {
         return p.getWeightsVector();
     }
 
-    public double testClassifier(List<String> posDocs, List<String> negDocs) {
-        Random random = new Random();
-        boolean positivity;
+    public double testClassifier(List<Document> documents) {
         int correctAnswers = 0;
         int index;
-        Document document = new Document();
+        Random random = new Random();
 
         for (int i = 0; i < Utils.TESTING_ITERATIONS; ++i) {
-            positivity = random.nextBoolean();
 
-            if (positivity) {
-                index = random.nextInt(posDocs.size());
-                document.setText(posDocs.get(index));
-            } else {
-                index = random.nextInt(negDocs.size());
-                document.setText(negDocs.get(index));
-            }
+            index = random.nextInt(documents.size());
 
-            if (getOpinion(document) == positivity)
+            if (recognizeOpinion(documents.get(index)).equals(documents.get(index).getOpinion()))
                 ++correctAnswers;
         }
 
@@ -150,30 +152,21 @@ public class SentimentAnalyzer {
         return indexes;
     }
 
-    private List<TrainingExample<List<Double>, Boolean>> createTrainingData(List<String> posDocs, List<String> negDocs) {
+    private List<TrainingExample<List<Double>, Boolean>> createTrainingData(List<Document> documents) {
         List<TrainingExample<List<Double>, Boolean>> trainingData = new ArrayList<>();
-
-        trainingData.addAll(extractData(posDocs, true));
-        trainingData.addAll(extractData(negDocs, false));
-
-        return trainingData;
-    }
-
-    private List<TrainingExample<List<Double>, Boolean>> extractData(List<String> documents, Boolean positive) {
-        List<TrainingExample<List<Double>, Boolean>> trainingData = new ArrayList<>();
-        Document document = new Document();
         TrainingExample<List<Double>, Boolean> example;
 
         List<Double> zeros = zeroList(inputSize);
 
-        for (String text : documents) {
-            document.setText(text);
-            document.removeSpecialWords();
+        boolean positive;
 
+        for (Document document : documents) {
             List<Double> input = getInputs(document);
 
             if (input == null || input.equals(zeros))
                 continue;
+
+            positive = document.getOpinion().equals(DocumentOpinion.POSITIVE);
 
             example = new TrainingExample<>(input, positive);
 
@@ -277,18 +270,29 @@ public class SentimentAnalyzer {
         }
     }
 
-    private Pair<List<String>, List<String>> splitData(List<String> documents) {
-        List<String> trainingData = new ArrayList<>();
-        List<String> testingData = new ArrayList<>();
+    private Pair<List<Document>, List<Document>> splitData(List<Document> documents) {
+        List<Document> trainingData = new ArrayList<>();
+        List<Document> testingData = new ArrayList<>();
 
-        int spliterator = (int)(Utils.TRAINING_DATA_SIZE * documents.size());
+        int trainingPositiveDocsNumber = (int)(corpus.getPositiveDocsNumber() * Utils.TRAINING_DATA_SIZE);
+        int trainingNegativeDocsNumber = (int)(corpus.getNegativeDocsNumber() * Utils.TRAINING_DATA_SIZE);
 
-        for (int i = 0; i < spliterator; ++i) {
-            trainingData.add(documents.get(i));
-        }
-
-        for (int i = spliterator; i < documents.size(); ++i) {
-            testingData.add(documents.get(i));
+        for (Document document : documents) {
+            if (document.getOpinion().equals(DocumentOpinion.NEGATIVE)) {
+                if (trainingNegativeDocsNumber > 0) {
+                    trainingData.add(document);
+                    --trainingNegativeDocsNumber;
+                } else {
+                    testingData.add(document);
+                }
+            } else if (document.getOpinion().equals(DocumentOpinion.POSITIVE)) {
+                if (trainingPositiveDocsNumber > 0) {
+                    trainingData.add(document);
+                    --trainingPositiveDocsNumber;
+                } else {
+                    testingData.add(document);
+                }
+            }
         }
 
         return new Pair<>(trainingData, testingData);

@@ -1,7 +1,9 @@
 package main;
 
 import analyzer.SentimentAnalyzer;
+import analyzer.WordMarker;
 import corpus.Corpus;
+import dictionary.Dictionary;
 import util.POS;
 import util.Utils;
 import util.Word;
@@ -21,22 +23,15 @@ public class Main {
         corpus.loadCorpus(Utils.proCorpusAddress, Utils.antiCorpusAddress);
 
         SentimentAnalyzer analyzer = new SentimentAnalyzer();
-       /* analyzer.setPosTypes(POS.ADJECTIVE, POS.ADVERB);
-
-        List<String> poss = corpus.getPositiveDocs();
-        List<String> negs = corpus.getNegativeDocs();
-
-        int spliterator = (int)(poss.size() * Utils.TRAINING_DATA_SIZE);
-
-        poss = poss.subList(spliterator, poss.size());
-        negs = negs.subList(spliterator, negs.size());
-
-        double accuracy = analyzer.testClassifier(poss, negs);
-
-        System.out.println(accuracy);*/
 
         corpus.removeSpecialWords();
         corpus.removeInsignificantWords();
         analyzer.createNewClassifier(corpus, POS.ADJECTIVE);
+
+        /*WordMarker wm = new WordMarker();
+        words = wm.markWords(corpus, POS.ADJECTIVE);
+
+        Dictionary dict = new Dictionary(words);
+        dict.saveDictionary(Utils.markedAdjectives);*/
     }
 }

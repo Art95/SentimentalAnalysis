@@ -2,6 +2,7 @@ package analyzer;
 
 import corpus.Corpus;
 import corpus.Document;
+import corpus.DocumentOpinion;
 import learning.TrainingExample;
 import perceptron.Perceptron;
 import perceptron.PerceptronTrainer;
@@ -25,18 +26,21 @@ public class WordMarker {
 
     private POS[] posTypes;
 
+    private Corpus corpus;
+
     public WordMarker() {
         indexes = new HashMap<>();
         trainer = new PerceptronTrainer();
     }
 
     public List<Word> markWords(Corpus corpus, POS... wordsPOS) {
+        this.corpus = corpus;
         posTypes = wordsPOS.clone();
 
         List<Word> words = corpus.getWords(wordsPOS);
         indexes = setIndexes(words);
 
-        List<Double> marks = getWordsMarks(corpus);
+        List<Double> marks = getWordsMarks();
         setMarks(words, marks);
 
         return words;
@@ -51,9 +55,9 @@ public class WordMarker {
         }
     }
 
-    private List<Double> getWordsMarks(Corpus corpus) {
+    private List<Double> getWordsMarks() {
         List<Double> initialWeights = getInitialWeights();
-        List<TrainingExample<List<Double>, Boolean>> trainingData = createTrainingData(corpus);
+        List<TrainingExample<List<Double>, Boolean>> trainingData = createTrainingData();
 
         trainer.enableLogging();
         trainer.setLoggingFrequency(Utils.LOGGING_FREQUENCY);
@@ -103,37 +107,22 @@ public class WordMarker {
         return init_weights;
     }
 
-    private List<TrainingExample<List<Double>, Boolean>> createTrainingData(Corpus corpus) {
+    private List<TrainingExample<List<Double>, Boolean>> createTrainingData() {
         List<TrainingExample<List<Double>, Boolean>> trainingData = new ArrayList<>();
-
-        trainingData.addAll(extractData(corpus, true));
-        trainingData.addAll(extractData(corpus, false));
-
-        return trainingData;
-    }
-
-    private List<TrainingExample<List<Double>, Boolean>> extractData(Corpus corpus, Boolean positive) {
-        List<TrainingExample<List<Double>, Boolean>> trainingData = new ArrayList<>();
-        Document document = new Document();
         List<Double> input;
-        List<String> documents;
         TrainingExample<List<Double>, Boolean> example;
-
-        if (positive)
-            documents = corpus.getPositiveDocs();
-        else
-            documents = corpus.getNegativeDocs();
+        boolean positive;
 
         List<Double> zeros = zeroList(inputSize);
 
-        for (String text : documents) {
-            document.setText(text);
-            document.removeSpecialWords();
+        for (Document document : corpus.getDocuments()) {
 
             input = getInputs(document);
 
             if (input == null || input.equals(zeros))
                 continue;
+
+            positive = document.getOpinion().equals(DocumentOpinion.POSITIVE);
 
             example = new TrainingExample<>(input, positive);
 
