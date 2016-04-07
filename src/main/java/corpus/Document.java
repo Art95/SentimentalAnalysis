@@ -2,8 +2,12 @@ package corpus;
 
 import edu.stanford.nlp.ling.CoreAnnotations;
 import edu.stanford.nlp.ling.CoreLabel;
+import edu.stanford.nlp.ling.IndexedWord;
 import edu.stanford.nlp.pipeline.Annotation;
 import edu.stanford.nlp.pipeline.StanfordCoreNLP;
+import edu.stanford.nlp.semgraph.SemanticGraph;
+import edu.stanford.nlp.semgraph.SemanticGraphCoreAnnotations;
+import edu.stanford.nlp.semgraph.SemanticGraphEdge;
 import edu.stanford.nlp.util.CoreMap;
 import util.POS;
 import util.Utils;
@@ -30,23 +34,37 @@ public class Document {
 
     private DocumentOpinion opinion;
 
+    private List<SemanticGraph> semanticGraphs;
+
     public Document() {
         Properties props = new Properties();
-        props.setProperty("annotators", "tokenize, ssplit, pos, lemma");
+        props.setProperty("annotators", "tokenize, ssplit, pos, lemma, parse");
         this.pipeline = new StanfordCoreNLP(props);
+
         words = new ArrayList<>();
+        semanticGraphs = new ArrayList<>();
+        uniqueWords = new HashMap<>();
+
         opinion = DocumentOpinion.UNKNOWN;
     }
 
     public Document(StanfordCoreNLP pipeline) {
         this.pipeline = pipeline;
+
         words = new ArrayList<>();
+        semanticGraphs = new ArrayList<>();
+        uniqueWords = new HashMap<>();
+
         opinion = DocumentOpinion.UNKNOWN;
     }
 
     public Document(StanfordCoreNLP pipeline, DocumentOpinion opinion) {
         this.pipeline = pipeline;
+
         words = new ArrayList<>();
+        semanticGraphs = new ArrayList<>();
+        uniqueWords = new HashMap<>();
+
         this.opinion = opinion;
     }
 
@@ -54,6 +72,11 @@ public class Document {
         this.text = text;
 
         words.clear();
+        semanticGraphs.clear();
+        uniqueWords.clear();
+
+        parseText(text);
+
         words = extractWords();
     }
 
@@ -64,6 +87,8 @@ public class Document {
     public void loadDocument(String fileAddress) {
         File file = new File(fileAddress);
         text = loadText(file);
+
+        parseText(text);
 
         words = extractWords();
     }
@@ -158,20 +183,65 @@ public class Document {
         return result;
     }
 
-    private List<Word> extractWords() {
+    public Map<String, List<Word>> getConnectedWords(SpecialWordType type) {
+        Map<String, List<Word>> result = new HashMap<>();
+        Set<String> kernel;
+
+        if (type == SpecialWordType.KERNEL_WORD)
+            kernel = loadAdditionalFile(Utils.kernelFileAddress);
+        else if  (type == SpecialWordType.PERIPHERY_WORD)
+            kernel = loadAdditionalFile(Utils.peripheryFileAddress);
+        else
+            kernel = new HashSet<>();
+
         List<Word> words;
-        uniqueWords = new HashMap<>();
 
-        extractWordsFromText(text);
+        for (SemanticGraph graph : semanticGraphs) {
+            for (String kernelWord : kernel) {
+                words = new ArrayList<>();
+                List<IndexedWord> kernelIndexedWords = graph.getAllNodesByWordPattern(kernelWord);
 
-        words = new ArrayList<>(uniqueWords.values());
+                for (IndexedWord iWord: kernelIndexedWords) {
+                    List<SemanticGraphEdge> inEdges = graph.getIncomingEdgesSorted(iWord);
+                    List<SemanticGraphEdge> outEdges = graph.getOutEdgesSorted(iWord);
+
+                    for (SemanticGraphEdge edge : inEdges) {
+                        Word connectedWord = new Word(edge.getSource().backingLabel());
+
+                        if (!kernel.contains(connectedWord.getWord()))
+                            words.add(connectedWord);
+                    }
+
+                    for (SemanticGraphEdge edge : outEdges) {
+                        Word connectedWord = new Word(edge.getTarget().backingLabel());
+
+                        if (!kernel.contains(connectedWord.getWord()))
+                            words.add(connectedWord);
+                    }
+
+                }
+
+                if (!words.isEmpty()) {
+                    if (result.containsKey(kernelWord))
+                        result.get(kernelWord).addAll(words);
+                    else
+                        result.put(kernelWord, words);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private List<Word> extractWords() {
+        List<Word> words = new ArrayList<>(uniqueWords.values());
         Collections.sort(words);
         words = removeDuplicates(words);
 
         return words;
     }
 
-    private void extractWordsFromText(String text) {
+    private void parseText(String text) {
         Annotation document = new Annotation(text);
         Word word, temp;
 
@@ -193,7 +263,13 @@ public class Document {
 
                 uniqueWords.put(word, temp);
             }
+
+            SemanticGraph dependencies =
+                    sentence.get(SemanticGraphCoreAnnotations.CollapsedCCProcessedDependenciesAnnotation.class);
+
+            semanticGraphs.add(dependencies);
         }
+
     }
 
     private List<Word> removeDuplicates(List<Word> words) {
