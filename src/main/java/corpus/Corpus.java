@@ -35,7 +35,7 @@ public class Corpus {
 
     public Corpus() {
         Properties props = new Properties();
-        props.setProperty("annotators", "tokenize, ssplit, pos, lemma");
+        props.setProperty("annotators", "tokenize, ssplit, pos, lemma, parse");
         this.pipeline = new StanfordCoreNLP(props);
         words = new ArrayList<>();
     }
