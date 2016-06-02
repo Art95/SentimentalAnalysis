@@ -1,10 +1,7 @@
 package main;
 
-import analyzer.SentimentAnalyzer;
-import analyzer.WordMarker;
+import classifiers.NaiveBayes;
 import corpus.Corpus;
-import dictionary.Dictionary;
-import util.POS;
 import util.Utils;
 import util.Word;
 
@@ -22,16 +19,12 @@ public class Main {
 
         corpus.loadCorpus(Utils.proCorpusAddress, Utils.antiCorpusAddress);
 
-        SentimentAnalyzer analyzer = new SentimentAnalyzer();
+        NaiveBayes nb;
 
-        corpus.removeSpecialWords();
-        corpus.removeInsignificantWords();
-        analyzer.createNewClassifier(corpus, POS.ADJECTIVE);
-
-        /*WordMarker wm = new WordMarker();
-        words = wm.markWords(corpus, POS.ADJECTIVE);
-
-        Dictionary dict = new Dictionary(words);
-        dict.saveDictionary(Utils.markedAdjectives);*/
+        for (int i = 0; i < 5; ++i) {
+            System.out.println("\nCross validation. Classifier #" + i + '\n');
+            nb = new NaiveBayes();
+            nb.learn(corpus, i);
+        }
     }
 }

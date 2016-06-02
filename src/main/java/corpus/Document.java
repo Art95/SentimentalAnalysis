@@ -38,7 +38,8 @@ public class Document {
 
     public Document() {
         Properties props = new Properties();
-        props.setProperty("annotators", "tokenize, ssplit, pos, lemma, parse");
+        //props.setProperty("annotators", "tokenize, ssplit, pos, lemma, parse");
+        props.setProperty("annotators", "tokenize, ssplit, pos, lemma");
         this.pipeline = new StanfordCoreNLP(props);
 
         words = new ArrayList<>();
@@ -264,10 +265,10 @@ public class Document {
                 uniqueWords.put(word, temp);
             }
 
-            SemanticGraph dependencies =
+            /*SemanticGraph dependencies =
                     sentence.get(SemanticGraphCoreAnnotations.CollapsedCCProcessedDependenciesAnnotation.class);
 
-            semanticGraphs.add(dependencies);
+            semanticGraphs.add(dependencies);*/
         }
 
     }

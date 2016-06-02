@@ -26,8 +26,6 @@ public class Word implements Comparable<Word> {
 
     private HashMap<Document, Integer> frequencyPerDoc;
 
-    private Pair<Double, Double> rate_TF_IDF;
-
     private Double mark;
 
 
@@ -45,7 +43,6 @@ public class Word implements Comparable<Word> {
         negativeDocsNumber = 0;
         neutralDocsNumber = 0;
 
-        rate_TF_IDF = new Pair<>(0.0, 0.0);
         mark = 0.0;
     }
 
@@ -63,7 +60,6 @@ public class Word implements Comparable<Word> {
         negativeDocsNumber = 0;
         neutralDocsNumber = 0;
 
-        rate_TF_IDF = new Pair<>(0.0, 0.0);
         mark = 0.0;
     }
 
@@ -155,14 +151,6 @@ public class Word implements Comparable<Word> {
         } else {
             ++neutralFrequency;
         }
-    }
-
-    public void set_TF_IDF_Rate(Pair<Double, Double> rate) {
-        this.rate_TF_IDF = rate;
-    }
-
-    public Pair<Double, Double> get_TF_IDF_Rate() {
-        return this.rate_TF_IDF;
     }
 
     public String toString() {

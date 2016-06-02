@@ -13,6 +13,12 @@ public class Utils {
     public static final String proCorpusAddress =
             "./Files/Corpuses/pro_GMO.txt";
 
+    public static final String antiCorpusProcessedAddress =
+            "./Files/Corpuses/processed_anti_GMO.txt";
+
+    public static final String proCorpusProcessedAddress =
+            "./Files/Corpuses/processed_pro_GMO.txt";
+
     public static final String kernelFileAddress =
             "./Files/Corpuses/Kernel.txt";
 

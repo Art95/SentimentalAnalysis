@@ -26,16 +26,15 @@ public class Corpus {
     private List<Word> words;
     private Map<Word, Word> uniqueWords;
 
-    private List<Document> documents;
-
-    private int positiveDocsNumber;
-    private  int negativeDocsNumber;
+    private List<Document> positiveDocuments;
+    private List<Document> negativeDocuments;
 
     private Set<String> specialWords;
 
     public Corpus() {
         Properties props = new Properties();
-        props.setProperty("annotators", "tokenize, ssplit, pos, lemma, parse");
+        //props.setProperty("annotators", "tokenize, ssplit, pos, lemma, parse");
+        props.setProperty("annotators", "tokenize, ssplit, pos, lemma");
         this.pipeline = new StanfordCoreNLP(props);
         words = new ArrayList<>();
     }
@@ -74,15 +73,11 @@ public class Corpus {
         File posFile = new File(positiveFileAddress);
         File negFile = new File(negativeFileAddress);
 
-        documents = new ArrayList<>();
+        positiveDocuments = new ArrayList<>();
+        negativeDocuments = new ArrayList<>();
 
-        documents.addAll(loadDocuments(posFile, DocumentOpinion.POSITIVE));
-
-        positiveDocsNumber = documents.size();
-
-        documents.addAll(loadDocuments(negFile, DocumentOpinion.NEGATIVE));
-
-        negativeDocsNumber = documents.size() - positiveDocsNumber;
+        positiveDocuments.addAll(loadDocuments(posFile, DocumentOpinion.POSITIVE));
+        negativeDocuments.addAll(loadDocuments(negFile, DocumentOpinion.NEGATIVE));
 
         words = extractWords();
     }
@@ -106,26 +101,24 @@ public class Corpus {
     }
 
     public List<Document> getDocuments() {
-        return documents;
+        List<Document> allDocuments = new ArrayList<>();
+        allDocuments.addAll(positiveDocuments);
+        allDocuments.addAll(negativeDocuments);
+
+        return allDocuments;
     }
 
-    public int getPositiveDocsNumber() { return this.positiveDocsNumber; }
-
-    public int getNegativeDocsNumber() { return this.negativeDocsNumber; }
-
-    public void markWords_TF_IDF() {
-        Double pRate, nRate, temp;
-
-        for (Word word : words) {
-            temp = Math.log((negativeDocsNumber * Math.max(1.0, word.getPositiveDocsNumber())) /
-                    (positiveDocsNumber * Math.max(1.0, word.getNegativeDocsNumber())));
-
-            pRate = (word.getPositiveFrequency() / Math.max(1.0, positiveDocsNumber)) * temp;
-            nRate = (word.getNegativeFrequency() / Math.max(1.0, negativeDocsNumber)) * temp;
-
-            word.set_TF_IDF_Rate(new Pair<>(pRate, nRate));
-        }
+    public List<Document> getPositiveDocuments() {
+        return this.positiveDocuments;
     }
+
+    public List<Document> getNegativeDocuments() {
+        return this.negativeDocuments;
+    }
+
+    public int getPositiveDocsNumber() { return this.positiveDocuments.size(); }
+
+    public int getNegativeDocsNumber() { return this.negativeDocuments.size(); }
 
     public void removeSpecialWords(SpecialWordType... specialWordsType) {
         specialWords = new HashSet<>();
@@ -147,7 +140,12 @@ public class Corpus {
 
         List<Word> result = new ArrayList<>();
 
-        for (Document document : documents) {
+        for (Document document : positiveDocuments) {
+            document.setSpecialWords(specialWords);
+            document.removeSpecialWords(specialWordsType);
+        }
+
+        for (Document document : negativeDocuments) {
             document.setSpecialWords(specialWords);
             document.removeSpecialWords(specialWordsType);
         }
@@ -165,7 +163,7 @@ public class Corpus {
         words = result;
     }
 
-    public void removeInsignificantWords() {
+    public void removeInsignificantWords(int threshold) {
         List<Word> result = new ArrayList<>();
         Double averageFrequency = 0.0;
 
@@ -176,7 +174,7 @@ public class Corpus {
         averageFrequency /= words.size();
 
         for (Word word : words) {
-            if (word.getTotalFrequency() >= averageFrequency)
+            if (word.getTotalFrequency() > threshold)
                 result.add(word);
         }
 
@@ -229,8 +227,8 @@ public class Corpus {
         List<Word> words;
         uniqueWords = new HashMap<>();
 
-        for (Document document : documents)
-            extractWordsFromDoc(document);
+        positiveDocuments.forEach(this::extractWordsFromDoc);
+        negativeDocuments.forEach(this::extractWordsFromDoc);
 
         words = new ArrayList<>(uniqueWords.values());
         Collections.sort(words);
